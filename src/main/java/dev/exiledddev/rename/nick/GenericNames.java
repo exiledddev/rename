@@ -59,7 +59,8 @@ public final class GenericNames {
             if ((parts & 4) != 0) {
                 name.append(random.nextDouble() < NUMBER_CHANCE ? String.valueOf(1 + random.nextInt(9999)) : pick(LAST, random));
             }
-            if (name.length() >= NickStyle.MIN_LENGTH && name.length() <= NickStyle.MAX_LENGTH) {
+            // A lone number part (e.g. "1635") isn't much of a name.
+            if (name.length() >= NickStyle.MIN_LENGTH && name.length() <= NickStyle.MAX_LENGTH && !isAllDigits(name)) {
                 return name.toString();
             }
         }
@@ -82,6 +83,10 @@ public final class GenericNames {
 
     private static final int[] ONE_PART = {0b001, 0b010, 0b100};
     private static final int[] TWO_PARTS = {0b011, 0b101, 0b110};
+
+    private static boolean isAllDigits(final CharSequence name) {
+        return name.chars().allMatch(Character::isDigit);
+    }
 
     private static String pick(final List<String> options, final Random random) {
         return options.get(random.nextInt(options.size()));

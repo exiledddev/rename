@@ -5,6 +5,7 @@ import dev.exiledddev.rename.command.UnrenameCommand;
 import dev.exiledddev.rename.listener.NickListener;
 import dev.exiledddev.rename.nick.NickService;
 import dev.exiledddev.rename.nick.SkinService;
+import dev.exiledddev.rename.nick.StyleSkins;
 import dev.exiledddev.rename.store.Database;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
@@ -20,6 +21,7 @@ public final class RenamePlugin extends JavaPlugin {
     private Settings settings;
     private Database database;
     private NickService nicks;
+    private StyleSkins styleSkins;
 
     @Override
     public void onEnable() {
@@ -36,7 +38,9 @@ public final class RenamePlugin extends JavaPlugin {
 
         final SkinService skins = new SkinService(this,
             () -> this.settings.skinAttempts(), () -> this.settings.skinFallback(), () -> this.nicks.serverSkins());
-        this.nicks = new NickService(this.database, skins);
+        this.styleSkins = new StyleSkins(this, this.database);
+        this.loadStyleSkins();
+        this.nicks = new NickService(this.database, skins, this.styleSkins);
         this.nicks.load();
         final AutoNick autoNick = new AutoNick(this.database);
 
@@ -82,5 +86,10 @@ public final class RenamePlugin extends JavaPlugin {
     public void reloadSettings() {
         this.reloadConfig();
         this.settings = Settings.load(this.getConfig(), this.getLogger());
+        this.loadStyleSkins();
+    }
+
+    private void loadStyleSkins() {
+        this.styleSkins.load(this.getConfig().getConfigurationSection("style-skins"), this.getConfig().getString("skins.mineskin-api-key", ""));
     }
 }
