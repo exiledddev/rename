@@ -1,0 +1,16 @@
+name: Rename
+version: '${version}'
+main: dev.exiledddev.rename.RenamePlugin
+api-version: '1.21.11'
+description: Random nicknames and skins for recording sessions, with full vanilla selector support.
+author: exiledddev
+website: https://github.com/exiledddev/rename
+
+# Commands are registered through Paper's Brigadier API, so there is no commands: section.
+permissions:
+  rename.use:
+    description: Use /rename and /unrename.
+    default: op
+  rename.exempt:
+    description: Never nicknamed automatically by an auto-nick session (you can still rename them by hand).
+    default: false

@@ -1,0 +1,25 @@
+# Rename configuration. Run /rename reload after editing (storage changes need a restart).
+
+# Style used when /rename doesn't name one: generic, binary, unsettling or obscured.
+default-style: generic
+
+skins:
+  # Give a random skin when /rename has neither --skin nor --noskin.
+  random-by-default: false
+  # Random skins come from random real Minecraft accounts. How many accounts to try per player
+  # before falling back. Each try is one Mojang lookup; 0 skips straight to the fallback.
+  random-account-attempts: 6
+  # If no random account works (Mojang down, rate limits), use the skin of a random player who
+  # has joined this server instead. false = the player keeps their own skin.
+  fallback-to-server-skins: true
+
+storage:
+  # sqlite: a single plugins/Rename/rename.db file, nothing to set up.
+  # mysql:  share nicknames between several servers.
+  type: sqlite
+  mysql:
+    host: localhost
+    port: 3306
+    database: rename
+    username: root
+    password: ""
