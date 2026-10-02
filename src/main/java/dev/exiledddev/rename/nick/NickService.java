@@ -18,6 +18,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Scoreboard;
@@ -39,14 +40,18 @@ import org.jspecify.annotations.Nullable;
 public final class NickService {
 
     private static final int MAX_NAME_ATTEMPTS = 2000;
+    /** Ticks between hiding a renamed player from everyone else and showing them again. */
+    private static final long REFRESH_DELAY_TICKS = 2;
 
+    private final Plugin plugin;
     private final Database database;
     private final SkinService skins;
     private final StyleSkins styleSkins;
     private final Map<UUID, Nick> active = new ConcurrentHashMap<>();
     private final Map<UUID, Database.PlayerRecord> players = new ConcurrentHashMap<>();
 
-    public NickService(final Database database, final SkinService skins, final StyleSkins styleSkins) {
+    public NickService(final Plugin plugin, final Database database, final SkinService skins, final StyleSkins styleSkins) {
+        this.plugin = plugin;
         this.database = database;
         this.skins = skins;
         this.styleSkins = styleSkins;
@@ -336,6 +341,33 @@ public final class NickService {
         moveScoreboardEntry(player.getName(), name);
         player.setPlayerProfile(profile(player.getUniqueId(), name, skin));
         this.decorate(player);
+        this.refreshForOthers(player);
+    }
+
+    /**
+     * Makes everyone else's game pick up the new name and skin. setPlayerProfile refreshes the
+     * player themselves, but other clients can keep showing the old tab entry, nametag and skin.
+     * Hiding the player from each viewer and showing them again a couple of ticks later makes
+     * those clients drop the old profile and receive the new one.
+     */
+    private void refreshForOthers(final Player player) {
+        final List<Player> viewers = new ArrayList<>();
+        for (final Player viewer : Bukkit.getOnlinePlayers()) {
+            if (!viewer.equals(player) && viewer.canSee(player)) {
+                viewer.hidePlayer(this.plugin, player);
+                viewers.add(viewer);
+            }
+        }
+        if (viewers.isEmpty()) {
+            return;
+        }
+        Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
+            for (final Player viewer : viewers) {
+                if (viewer.isOnline() && player.isOnline()) {
+                    viewer.showPlayer(this.plugin, player);
+                }
+            }
+        }, REFRESH_DELAY_TICKS);
     }
 
     private static PlayerProfile profile(final UUID uuid, final String name, final @Nullable Skin skin) {
