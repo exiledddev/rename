@@ -40,7 +40,7 @@ public final class RenamePlugin extends JavaPlugin {
             () -> this.settings.skinAttempts(), () -> this.settings.skinFallback(), () -> this.nicks.serverSkins());
         this.styleSkins = new StyleSkins(this, this.database);
         this.loadStyleSkins();
-        this.nicks = new NickService(this.database, skins, this.styleSkins);
+        this.nicks = new NickService(this, this.database, skins, this.styleSkins);
         this.nicks.load();
         final AutoNick autoNick = new AutoNick(this.database);
 
