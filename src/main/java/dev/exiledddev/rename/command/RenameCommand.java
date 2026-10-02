@@ -14,6 +14,7 @@ import dev.exiledddev.rename.nick.Nick;
 import dev.exiledddev.rename.nick.NickNames;
 import dev.exiledddev.rename.nick.NickService;
 import dev.exiledddev.rename.nick.NickStyle;
+import dev.exiledddev.rename.nick.StyleSkins;
 import dev.exiledddev.rename.store.Database;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
@@ -53,6 +54,7 @@ public final class RenameCommand {
         new HelpEntry("/rename whois <nickname>", "/rename whois ", "the real player behind a nickname"),
         new HelpEntry("/rename history <player>", "/rename history ", "a player's past nicknames"),
         new HelpEntry("/rename auto <style> [--skin] | off", "/rename auto ", "nickname everyone who joins"),
+        new HelpEntry("/rename skins", "/rename skins", "which styles have a fixed skin"),
         new HelpEntry("/rename reload", "/rename reload", "reload config.yml")
     );
 
@@ -91,9 +93,10 @@ public final class RenameCommand {
                     .executes(this::history)))
             .then(this.withStyles(Commands.literal("auto"), (ctx, style, skin) -> this.auto(ctx, style, skin))
                 .then(Commands.literal("off").executes(ctx -> this.autoOff(ctx))))
+            .then(Commands.literal("skins").executes(this::skins))
             .then(Commands.literal("reload").executes(ctx -> {
                 this.plugin.reloadSettings();
-                Msg.success(ctx.getSource().getSender(), "Reloaded config.yml.");
+                Msg.success(ctx.getSource().getSender(), "Reloaded config.yml. Style skins are reloading; check them with /rename skins.");
                 return Command.SINGLE_SUCCESS;
             }))
             .build();
@@ -140,8 +143,11 @@ public final class RenameCommand {
         final CommandSender sender = ctx.getSource().getSender();
         final List<Player> targets = Args.targets(ctx, Args.TARGETS);
         final NickStyle style = requestedStyle != null ? requestedStyle : this.plugin.settings().defaultStyle();
-        final boolean skin = requestedSkin != null ? requestedSkin : this.plugin.settings().skinByDefault();
-        if (skin) {
+        final boolean skin = requestedSkin != null ? requestedSkin : this.nicks.skinByDefault(style, this.plugin.settings().skinByDefault());
+        if (skin && this.nicks.styleSkins().skin(style) == null) {
+            if (this.nicks.styleSkins().hasSkin(style)) {
+                Msg.info(sender, "The <style> skin isn't loaded (see /rename skins), so they get random skins instead.", Msg.text("style", style.id()));
+            }
             Msg.info(sender, "Looking up <count> random skin(s)...", Msg.text("count", targets.size()));
         }
         this.report(sender, this.nicks.nickAll(targets, style, skin, Args.by(ctx)), style.id());
@@ -269,11 +275,29 @@ public final class RenameCommand {
 
     private int auto(final CommandContext<CommandSourceStack> ctx, final @Nullable NickStyle requestedStyle, final @Nullable Boolean requestedSkin) {
         final NickStyle style = requestedStyle != null ? requestedStyle : this.plugin.settings().defaultStyle();
-        final boolean skin = requestedSkin != null ? requestedSkin : this.plugin.settings().skinByDefault();
+        final boolean skin = requestedSkin != null ? requestedSkin : this.nicks.skinByDefault(style, this.plugin.settings().skinByDefault());
         this.autoNick.start(style, skin);
         Msg.success(ctx.getSource().getSender(), "Auto-nick is on: players who join without a nickname get a <style> nickname<skin>. "
                 + "Players with rename.exempt are skipped. Stop with /rename auto off.",
-            Msg.text("style", style.id()), Msg.text("skin", skin ? " and a random skin" : ""));
+            Msg.text("style", style.id()), Msg.text("skin", skin ? (this.nicks.styleSkins().hasSkin(style) ? " and the " + style.id() + " skin" : " and a random skin") : ""));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** Which styles have a fixed skin, and whether it loaded. */
+    private int skins(final CommandContext<CommandSourceStack> ctx) {
+        final CommandSender sender = ctx.getSource().getSender();
+        Msg.info(sender, "Style skins <dark_gray>(style-skins in config.yml)</dark_gray>:");
+        for (final NickStyle style : NickStyle.values()) {
+            final StyleSkins.Status status = this.nicks.styleSkins().statuses().get(style);
+            if (status == null) {
+                Msg.line(sender, " <gold><style></gold> <gray>random skin with --skin", Msg.text("style", style.id()));
+            } else if (status.skin() != null) {
+                Msg.line(sender, " <gold><style></gold> <green>fixed skin loaded <dark_gray>(<source>)", Msg.text("style", style.id()), Msg.text("source", status.source()));
+            } else {
+                Msg.line(sender, " <gold><style></gold> <red>fixed skin not loaded: <problem>", Msg.text("style", style.id()),
+                    Msg.text("problem", status.problem() == null ? "unknown" : status.problem()));
+            }
+        }
         return Command.SINGLE_SUCCESS;
     }
 
@@ -298,12 +322,12 @@ public final class RenameCommand {
             } else if (applied.size() == 1) {
                 final Nick nick = applied.getFirst();
                 Msg.success(sender, "<real> is now <nick><skin>.", Msg.text("real", nick.realName()),
-                    Msg.component("nick", this.nickName(nick)), Msg.text("skin", nick.skin() != null ? " with a random skin" : ""));
+                    Msg.component("nick", this.nickName(nick)), Msg.text("skin", nick.skin() != null ? " with a new skin" : ""));
             } else {
                 final long skins = applied.stream().filter(nick -> nick.skin() != null).count();
                 Msg.success(sender, "Renamed <count> players (<what>)<skins>. See who's who with /rename list.",
                     Msg.text("count", applied.size()), Msg.text("what", what),
-                    Msg.text("skins", skins > 0 ? ", " + skins + " with random skins" : ""));
+                    Msg.text("skins", skins > 0 ? ", " + skins + " with new skins" : ""));
             }
         });
     }
@@ -312,7 +336,7 @@ public final class RenameCommand {
         final boolean online = Bukkit.getPlayer(nick.uuid()) != null;
         Msg.line(sender, " <nick> <dark_gray>→</dark_gray> <white><real></white> <dark_gray>(<details>)",
             Msg.component("nick", this.nickName(nick)), Msg.text("real", nick.realName()),
-            Msg.text("details", nick.style().id() + (nick.skin() != null ? ", random skin" : "") + ", " + (online ? "online" : "offline") + ", " + Args.ago(nick.nickedAt())));
+            Msg.text("details", nick.style().id() + (nick.skin() != null ? ", new skin" : "") + ", " + (online ? "online" : "offline") + ", " + Args.ago(nick.nickedAt())));
     }
 
     /** The nickname in gold, with a hover showing it unscrambled for obscured names. */

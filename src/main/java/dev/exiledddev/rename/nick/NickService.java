@@ -42,12 +42,14 @@ public final class NickService {
 
     private final Database database;
     private final SkinService skins;
+    private final StyleSkins styleSkins;
     private final Map<UUID, Nick> active = new ConcurrentHashMap<>();
     private final Map<UUID, Database.PlayerRecord> players = new ConcurrentHashMap<>();
 
-    public NickService(final Database database, final SkinService skins) {
+    public NickService(final Database database, final SkinService skins, final StyleSkins styleSkins) {
         this.database = database;
         this.skins = skins;
+        this.styleSkins = styleSkins;
     }
 
     public void load() {
@@ -139,8 +141,12 @@ public final class NickService {
 
     // ---- Nicking --------------------------------------------------------------------------
 
-    /** A planned nickname for one player, before skins are looked up. */
-    public record Request(Player player, String nickname, NickStyle style, boolean randomSkin) {
+    /**
+     * A planned nickname for one player, before skins are looked up.
+     *
+     * @param skin whether to change their skin: to the style's fixed skin if it has one, otherwise a random one
+     */
+    public record Request(Player player, String nickname, NickStyle style, boolean skin) {
     }
 
     /**
@@ -148,11 +154,11 @@ public final class NickService {
      *
      * @return the nicknames, once any random skins have been found (completes on the main thread)
      */
-    public CompletableFuture<List<Nick>> nickAll(final Collection<Player> targets, final NickStyle style, final boolean randomSkin, final @Nullable UUID by) {
+    public CompletableFuture<List<Nick>> nickAll(final Collection<Player> targets, final NickStyle style, final boolean skin, final @Nullable UUID by) {
         final Set<String> reserved = new HashSet<>();
         final List<Request> requests = new ArrayList<>();
         for (final Player player : targets) {
-            requests.add(new Request(player, this.generate(style, reserved), style, randomSkin));
+            requests.add(new Request(player, this.generate(style, reserved), style, skin));
         }
         return this.apply(requests, by);
     }
@@ -173,9 +179,12 @@ public final class NickService {
         return this.apply(requests, by);
     }
 
-    /** Looks up random skins where asked, then applies every request on the main thread. */
+    /**
+     * Gives requests for styles with a fixed skin that skin, looks up random skins for the rest,
+     * then applies every request on the main thread.
+     */
     public CompletableFuture<List<Nick>> apply(final List<Request> requests, final @Nullable UUID by) {
-        final List<Request> needSkins = requests.stream().filter(Request::randomSkin).toList();
+        final List<Request> needSkins = requests.stream().filter(this::needsRandomSkin).toList();
         final CompletableFuture<List<@Nullable Skin>> skinsFuture = needSkins.isEmpty()
             ? CompletableFuture.completedFuture(List.of())
             : this.skins.randomSkins(needSkins.size());
@@ -184,13 +193,36 @@ public final class NickService {
             final List<Nick> applied = new ArrayList<>();
             int skinIndex = 0;
             for (final Request request : requests) {
-                final Skin skin = request.randomSkin() ? found.get(skinIndex++) : null;
+                final Skin skin;
+                if (!request.skin()) {
+                    skin = null;
+                } else if (this.needsRandomSkin(request)) {
+                    skin = found.get(skinIndex++);
+                } else {
+                    skin = this.styleSkins.skin(request.style());
+                }
                 if (request.player().isOnline()) {
                     applied.add(this.applyOne(request.player(), request.nickname(), request.style(), skin, by));
                 }
             }
             return applied;
         });
+    }
+
+    private boolean needsRandomSkin(final Request request) {
+        return request.skin() && this.styleSkins.skin(request.style()) == null;
+    }
+
+    /**
+     * Whether a nickname in this style should change the player's skin when the command doesn't
+     * say: always for styles with a fixed skin, otherwise the config default for random skins.
+     */
+    public boolean skinByDefault(final NickStyle style, final boolean randomByDefault) {
+        return this.styleSkins.hasSkin(style) || randomByDefault;
+    }
+
+    public StyleSkins styleSkins() {
+        return this.styleSkins;
     }
 
     private Nick applyOne(final Player player, final String nickname, final NickStyle style, final @Nullable Skin skin, final @Nullable UUID by) {

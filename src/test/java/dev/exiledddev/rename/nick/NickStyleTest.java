@@ -73,6 +73,15 @@ class NickStyleTest {
     }
 
     @Test
+    void genericNamesAreNeverOnlyNumbers() {
+        final Random random = new Random(6);
+        for (int i = 0; i < 20000; i++) {
+            final String name = GenericNames.generate(random);
+            assertFalse(name.chars().allMatch(Character::isDigit), name);
+        }
+    }
+
+    @Test
     void genericHasAtLeastTenThousandCombinations() {
         final long numbersAndWords = 9999L + GenericNames.LAST.size();
         final long threeParts = (long) GenericNames.FIRST.size() * GenericNames.MIDDLE.size() * numbersAndWords;

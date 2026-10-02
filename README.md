@@ -32,7 +32,7 @@ Rename needs no setup: it stores everything in `plugins/Rename/rename.db`.
 
 | Style | Example | What it is |
 |---|---|---|
-| `generic` | `GamerBoy9718`, `GreatLucas`, `MaceGodYT`, `FuzzyBee` | 1-3 parts: a first word, a middle word, and a number or tag (`YT`, `TV`, `Pro`...). Millions of combinations, no swear words. |
+| `generic` | `GamerBoy9718`, `GreatLucas`, `MaceGodYT`, `FuzzyBee` | 1-3 parts: a first word, a middle word, and a number or tag (`YT`, `TV`, `Pro`...). Millions of combinations, no swear words, never just a number. |
 | `binary` | `011110000001` | Only 1s and 0s, 3-16 characters. |
 | `unsettling` | `rKcBZLaWgcMDk` | Random letters, numbers and `_`, 3-16 characters, like a generated password. |
 | `obscured` | (scrambled text) | Shows as scrambled, constantly changing text in chat, the tab list, and death/join/leave/advancement messages. |
@@ -43,15 +43,28 @@ Minecraft limits nicknames to valid usernames: 3-16 letters, numbers or `_`. Tha
 - **unsettling** names can't use other symbols.
 - **obscured** names can't be scrambled on the nametag itself, which shows a random 16-character jumble instead. Everywhere else they're scrambled.
 
-## Random skins
+## Skins
 
-Add `--skin` to give each player a random skin along with the nickname:
+**Style skins.** Binary, unsettling and obscured each give everyone nicknamed in that style the same skin. These are set in `style-skins` in `config.yml`, and the defaults are your three NameMC skins. Style skins apply automatically; add `--noskin` to skip them. `/rename skins` shows whether each one has loaded.
+
+Minecraft only shows skins signed by Mojang, so a NameMC link can't be used directly. For each style, set **one** of these:
+
+| Option | How |
+|---|---|
+| `namemc: <link>` (the default) | Rename sends the image to [MineSkin](https://mineskin.org) to be signed. Needs a free API key from [account.mineskin.org](https://account.mineskin.org) in `skins.mineskin-api-key`. |
+| `value:` + `signature:` | No key needed. Download the skin from NameMC, upload it at [mineskin.org](https://mineskin.org), then copy the **Texture Value** and **Texture Signature** into the config. |
+| `account: <username>` | A Minecraft account that's currently wearing the skin. |
+| `url: <png link>` | Like `namemc`, for any skin image. |
+
+Each skin is looked up once and saved, so restarts don't fetch it again. After changing the config, run `/rename reload`.
+
+**Random skins (generic).** Add `--skin` to give each player a random skin along with the nickname:
 - Skins come from random real Minecraft accounts, so they're unpredictable.
 - If Mojang is unreachable, Rename uses the skin of a random player who has joined your server instead.
-- `/unrename` puts the player's real skin back.
-- To make random skins the default, set `skins.random-by-default: true` in the config. `--noskin` then skips them.
+- A style whose fixed skin hasn't loaded falls back to random skins too.
+- To make random skins the default, set `skins.random-by-default: true`.
 
-When a player is renamed, or their skin changes, their game refreshes for a split second. Everyone else sees the new name and skin straight away.
+`/unrename` always puts the player's real skin back. When someone is renamed or their skin changes, their game refreshes for a split second.
 
 ## Commands
 
@@ -67,7 +80,8 @@ When a player is renamed, or their skin changes, their game refreshes for a spli
 | `/rename whois <nickname>` | The real player behind a nickname, even an old one. |
 | `/rename history <player>` | A player's past nicknames. |
 | `/rename auto <style> [--skin]` / `/rename auto off` | Auto-nick session: while it's on, anyone who joins without a nickname gets one. |
-| `/rename reload` | Reload `config.yml`. |
+| `/rename skins` | Which styles have a fixed skin, and whether it loaded. |
+| `/rename reload` | Reload `config.yml` (style skins included). |
 
 Permissions:
 - `rename.use` (default: op): all the commands.

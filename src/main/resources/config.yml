@@ -12,6 +12,28 @@ skins:
   # If no random account works (Mojang down, rate limits), use the skin of a random player who
   # has joined this server instead. false = the player keeps their own skin.
   fallback-to-server-skins: true
+  # Free API key from https://account.mineskin.org. Only needed for style skins given as a NameMC
+  # link or image url below; MineSkin turns the image into a skin Minecraft will show.
+  mineskin-api-key: ""
+
+# A fixed skin for everyone nicknamed in a style, instead of a random one. Styles listed here get
+# their skin automatically (no --skin needed; --noskin skips it). Generic isn't listed, so it keeps
+# using random skins with --skin.
+#
+# Minecraft only shows skins signed by Mojang. Give each style ONE of:
+#   namemc: <NameMC skin link or id>     signed through MineSkin (needs skins.mineskin-api-key)
+#   url: <link to a skin .png>           same, for any image
+#   account: <username>                  a Minecraft account that's currently wearing the skin
+#   value: <texture value>               pasted from mineskin.org (upload the skin there, then copy
+#   signature: <texture signature>       "Texture Value" and "Texture Signature"); no key needed
+# Lookups are cached in the database, so each skin is only fetched once. Check with /rename skins.
+style-skins:
+  binary:
+    namemc: https://namemc.com/skin/3d6175ba0c5f01f5
+  unsettling:
+    namemc: https://namemc.com/skin/1fe28a034bc72b5e
+  obscured:
+    namemc: https://namemc.com/skin/462e7688f7efc115
 
 storage:
   # sqlite: a single plugins/Rename/rename.db file, nothing to set up.
